@@ -195,17 +195,21 @@ class Helper:
             splits = self.SPLITS
         
         for model in models:
-            try:
-                start = timeit.default_timer()
+            if len(all_scores) == 0 or len(all_scores[(all_scores['Model'] == model['name']) & (all_scores['Steps'] == ', '.join(self.pipe_steps(pipe)))]) == 0:
+                try:
+                    start = timeit.default_timer()
 
-                scores, cv_model = self.cv_evaluate(df.copy(), model, pipe = pipe, splits = splits)
+                    scores, cv_model = self.cv_evaluate(df.copy(), model, pipe = pipe, splits = splits)
 
-            except Exception as error:
-                note = 'Error: ' + str(error)
-                print(note)
-                scores = np.array([0])
+                except Exception as error:
+                    note = 'Error: ' + str(error)
+                    print(note)
+                    scores = np.array([0])
 
-            all_scores = self.score(model['name'], scores, timeit.default_timer(), start, cv_model, note, all_scores)
+                all_scores = self.score(model['name'], scores, timeit.default_timer(), start, cv_model, note, all_scores)
+
+            else:
+                print(str(model['name']) + ' already trained on those parameters, ignoring')
             
         self.show_scores(all_scores)
             
@@ -247,17 +251,16 @@ class Helper:
         
         cumulative = stop - start
         if len(all_scores[all_scores['Model'] == model]) > 0:
-            cumulative += all_scores[all_scores['Model'] == model].tail(1)['Time'].values[0]
+            cumulative += all_scores[all_scores['Model'] == model].tail(1)['Cumulative'].values[0]
             
-        all_scores = all_scores.append({'Model': model, 'Mean': mean, 'CV Score': '{:.3f} +/- {:.3f}'.format(mean, std), 'Time': stop - start, 'Cumulative': cumulative, 'Pipe': pipe, 'Steps': self.pipe_steps(pipe), 'Note': note}, ignore_index=True)
-    
-        return all_scores.loc[all_scores.astype(str).drop_duplicates(subset=['Model', 'CV Score', 'Steps'], keep='first').index]
+        return all_scores.append({'Model': model, 'Mean': mean, 'CV Score': '{:.3f} +/- {:.3f}'.format(mean, std), 'Time': stop - start, 'Cumulative': cumulative, 'Pipe': pipe, 'Steps': ', '.join(self.pipe_steps(pipe)[:-1]), 'Note': note}, ignore_index=True)
 
     def show_scores(self, all_scores):
         pd.set_option('max_colwidth', -1)
         display(all_scores.loc[:, ~all_scores.columns.isin(['Mean', 'Pipe', 'Cumulative'])])
         
     def plot_models(self, all_scores):
+        sns.set_style("whitegrid")
         plt.figure(figsize=(16, 8))
         ax = sns.lineplot(x="Cumulative", y="Mean", hue="Model", style="Model", markers=True, dashes=False, data=all_scores)
         label = str(self.METRIC) + ' Score'
