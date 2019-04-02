@@ -18,6 +18,7 @@ from scipy.stats.mstats import winsorize
 from sklearn.pipeline import make_pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.metrics import roc_auc_score, roc_curve, classification_report
 from sklearn.model_selection import cross_val_score, RandomizedSearchCV, TimeSeriesSplit, StratifiedKFold
 
 class Helper:
@@ -202,6 +203,7 @@ class Helper:
                     scores, cv_model = self.cv_evaluate(df.copy(), model, pipe = pipe, splits = splits)
 
                 except Exception as error:
+                    cv_model = pipe
                     note = 'Error: ' + str(error)
                     print(note)
                     scores = np.array([0])
@@ -268,3 +270,21 @@ class Helper:
         
     def best_pipeline(self, all_scores):
         return all_scores.sort_values(by=['Mean'], ascending = False).iloc[0]['Pipe']
+    
+    def plot_roc(self, fpr, tpr, logit_roc_auc):
+        plt.figure(figsize=(12, 6))
+        plt.plot(fpr, tpr)
+        plt.plot([0, 1], [0, 1], 'r--')
+        plt.xlim([0.0, 1.05])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('ROC curve')
+        plt.show()
+    
+    def roc(self, df, model, predictions):
+        X, y = self.split_x_y(df)
+        logit_roc_auc = roc_auc_score(y, predictions)
+        fpr, tpr, thresholds = roc_curve(y, model.predict_proba(X)[:,1])
+        self.plot_roc(fpr, tpr, logit_roc_auc)
+        print(classification_report(y, predictions))
