@@ -12,12 +12,16 @@ import pandas as pd
 import seaborn as sns
 from sklearn.base import clone
 import matplotlib.pyplot as plt
+from scipy.stats import variation
 from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
+from vecstack import StackingTransformer
 from scipy.stats import chi2_contingency
 from scipy.stats.mstats import winsorize
 from sklearn.pipeline import make_pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import roc_auc_score, roc_curve, classification_report
 from sklearn.model_selection import cross_val_score, RandomizedSearchCV, TimeSeriesSplit, StratifiedKFold
 
@@ -41,7 +45,6 @@ class Helper:
         percent = (df.isnull().sum()/df.isnull().count()).sort_values(ascending=False)
         return pd.concat([total, percent], axis=1, keys=['Total', 'Percent'])
     
-    
     def types(self, df, types, exclude = None):
         types = df.select_dtypes(include=types)
         excluded = [self.TARGET]
@@ -56,6 +59,16 @@ class Helper:
 
     def categoricals(self, df, exclude = None):
         return self.types(df, ['category', object], exclude)
+    
+    def boxplot(self, df, exclude = []):
+        plt.figure(figsize=(12,10))
+        num = self.numericals(df, exclude)
+        num = (num - num.mean())/num.std()
+        ax = sns.boxplot(data=num, orient='h')
+        
+    def coefficient_v(self, df, exclude = []):
+        plt.figure(figsize=(8,6))
+        ax = sns.barplot(x=np.sort(variation(self.numericals(df, exclude)))[::-1], y = self.numericals(df, exclude).columns)
     
     def correlated(self, df, threshold = 0.9):
         categoric = self.categorical_correlated(df, threshold)
@@ -153,6 +166,11 @@ class Helper:
         plt.xlabel('Number of Components')
         plt.ylabel('Variance (%)')
         plt.show()
+        
+    def target_distribution(self, df):
+        plt.figure(figsize=(8,7))
+        target_count = (df[self.TARGET].value_counts()/len(df))*100
+        target_count.plot(kind='bar', title='Target Distribution (%)')
     
     # Data Preparation
     
@@ -225,6 +243,35 @@ class Helper:
         
         return y, pipe.predict(X)
     
+    def stack_predict(self, df, holdout, pipes, amount = 2):
+        X, y = self.split_x_y(df)
+        X_test, y_test = self.split_x_y(holdout)
+        
+        pipe = Pipeline(self.top_pipeline(pipes).steps[:-1])
+        X = pipe.fit_transform(X)
+        X_test = pipe.transform(X_test)
+        
+        estimators = []
+        
+        for i in range(amount):
+            estimators.append((str(i), self.top_pipeline(pipes, i).steps[-1][1]))
+        
+        regression = False
+        
+        if self.METRIC == 'r2':
+            regression = True
+            
+        stack = StackingTransformer(estimators, regression)
+        stack.fit(X, y)
+
+        S_train = stack.transform(X)
+        S_test = stack.transform(X_test)
+
+        final_estimator = estimators[0][1]
+        final_estimator.fit(S_train, y)
+
+        return final_estimator, y_test, final_estimator.predict(S_test)
+    
     # Others
     
     def split_x_y(self, df):
@@ -266,10 +313,10 @@ class Helper:
         plt.figure(figsize=(16, 8))
         ax = sns.lineplot(x="Cumulative", y="Mean", hue="Model", style="Model", markers=True, dashes=False, data=all_scores)
         label = str(self.METRIC) + ' Score'
-        ax.set(ylabel=label, xlabel='Time', ylim=(0, 1))
+        ax.set(ylabel=label, xlabel='Time')
         
-    def best_pipeline(self, all_scores):
-        return all_scores.sort_values(by=['Mean'], ascending = False).iloc[0]['Pipe']
+    def top_pipeline(self, all_scores, index = 0):
+        return all_scores.sort_values(by=['Mean'], ascending = False).iloc[index]['Pipe']
     
     def plot_roc(self, fpr, tpr, logit_roc_auc):
         plt.figure(figsize=(12, 6))
