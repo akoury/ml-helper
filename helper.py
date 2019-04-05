@@ -318,6 +318,37 @@ class Helper:
     def top_pipeline(self, all_scores, index = 0):
         return all_scores.sort_values(by=['Mean'], ascending = False).iloc[index]['Pipe']
     
+    
+    # Regression
+    
+    def scatter_predict(self, y, pred):
+        plt.figure(figsize=(11, 9))
+        plt.scatter(y, pred, alpha=0.3)
+        plt.ylabel('Predicted')
+        plt.show()
+    
+    def plot_predict(self, y, pred, group = None, subset = None, x_label = None, y_label = None):
+        if group:
+            y = pd.DataFrame(y)
+            y = y.groupby(y.index // group).sum().iloc[:,0]
+            pred = pd.DataFrame(pred)
+            pred = pred.groupby(pred.index // group).sum().iloc[:,0]
+        
+        if not subset:
+            subset = len(y)
+            
+        plt.figure(figsize=(19, 9))
+        ax = sns.lineplot(data = y[0:subset], color='blue', label = 'Actual')
+        ax = sns.lineplot(data = pred[0:subset], color='red', label = 'Predicted')
+
+        if x_label:
+            plt.xlabel(x_label)
+
+        if y_label:
+            plt.ylabel(y_label)
+            
+    # Classification
+
     def plot_roc(self, fpr, tpr, logit_roc_auc):
         plt.figure(figsize=(12, 6))
         plt.plot(fpr, tpr)
