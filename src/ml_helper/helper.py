@@ -3,7 +3,7 @@
 """
 Created on Mon Mar  11 09:19:35 2019
 
-@author: alejandrokoury
+@author: akoury
 """
 
 import timeit
@@ -14,11 +14,10 @@ from sklearn.base import clone
 import matplotlib.pyplot as plt
 from scipy.stats import variation
 from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline
+from imblearn.pipeline import Pipeline
 from vecstack import StackingTransformer
 from scipy.stats import chi2_contingency
 from scipy.stats.mstats import winsorize
-from sklearn.pipeline import make_pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
@@ -44,21 +43,6 @@ class Helper:
         total = df.isnull().sum().sort_values(ascending=False)
         percent = (df.isnull().sum()/df.isnull().count()).sort_values(ascending=False)
         return pd.concat([total, percent], axis=1, keys=['Total', 'Percent'])
-    
-    def types(self, df, types, exclude = None):
-        types = df.select_dtypes(include=types)
-        excluded = [self.TARGET]
-        if exclude:
-            for i in exclude:
-                excluded.append(i)
-        cols = [col for col in types.columns if col not in excluded]
-        return df[cols]
-
-    def numericals(self, df, exclude = None):
-        return self.types(df, [np.number], exclude)
-
-    def categoricals(self, df, exclude = None):
-        return self.types(df, ['category', object], exclude)
     
     def boxplot(self, df, exclude = []):
         plt.figure(figsize=(12,10))
@@ -124,26 +108,11 @@ class Helper:
         upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(np.bool))
         return [column for column in upper.columns if any(abs(upper[column]) > threshold)], corr
     
-    def under_represented(self, df, threshold = 0.99):
-        under_rep = []
-        for column in df:
-            counts = df[column].value_counts()
-            majority_freq = counts.iloc[0]
-            if (majority_freq / len(df)) > threshold:
-                under_rep.append(column)
-
-        if not under_rep:
-            print('No underrepresented features')
-        else:
-            if self.TARGET in under_rep:
-                print('The target variable is underrepresented, consider rebalancing')
-                under_represented.remove(self.TARGET)
-            print(str(under_rep) + ' underrepresented')
-
-        return under_rep
-    
-    def feature_importance(self, df, model):
+    def feature_importance(self, df, model, convert = False):
         X, y = self.split_x_y(df)
+        
+        if convert:
+            X = self.one_hot_encode(X, self.categoricals(X))
         model.fit(X, y)
         importances = model.feature_importances_
         std = np.std([tree.feature_importances_ for tree in model.estimators_],axis=0)
@@ -157,11 +126,16 @@ class Helper:
         plt.ylim([-1, X.shape[1]])
         plt.show()
 
-    def plot_pca_components(self, df, variance = 0.9):
+    def plot_pca_components(self, df, variance = 0.9, convert = False):
         X, y = self.split_x_y(df)
+        
+        if convert:
+            X = self.one_hot_encode(X, self.categoricals(X))
+            
         pca = PCA().fit(X)
 
-        plt.figure()
+        sns.set_style("whitegrid")
+        plt.figure(figsize=(9, 7))
         plt.plot(np.cumsum(pca.explained_variance_ratio_))
         plt.xlabel('Number of Components')
         plt.ylabel('Variance (%)')
@@ -201,11 +175,11 @@ class Helper:
             model = pipe_cv
 
         if grid:
-            model = RandomizedSearchCV(model, grid, scoring = self.METRIC, cv = folds, n_iter = 10, refit=True, return_train_score = False, error_score=0.0, random_state = self.SEED)
+            model = RandomizedSearchCV(model, grid, scoring = self.METRIC, cv = folds, n_iter = 10, refit=True, return_train_score = False, error_score=0.0, n_jobs = -1, random_state = self.SEED)
             model.fit(X, y)
             scores = model.cv_results_['mean_test_score']
         else:
-            scores = cross_val_score(model, X, y, scoring = self.METRIC, cv = folds)
+            scores = cross_val_score(model, X, y, scoring = self.METRIC, cv = folds, n_jobs = -1)
             
         return scores, model
     
@@ -258,7 +232,7 @@ class Helper:
         
         regression = False
         
-        if self.METRIC == 'r2':
+        if self.METRIC in ['explained_variance', 'neg_mean_absolute_error', 'neg_mean_squared_error', 'neg_mean_squared_log_error', 'neg_median_absolute_error', 'r2'] :
             regression = True
             
         stack = StackingTransformer(estimators, regression)
@@ -273,6 +247,29 @@ class Helper:
         return final_estimator, y_test, final_estimator.predict(S_test)
     
     # Others
+
+    def types(self, df, types, exclude = None):
+        types = df.select_dtypes(include=types)
+        excluded = [self.TARGET]
+        if exclude:
+            for i in exclude:
+                excluded.append(i)
+        cols = [col for col in types.columns if col not in excluded]
+        return df[cols]
+
+    def numericals(self, df, exclude = None):
+        return self.types(df, [np.number], exclude)
+
+    def categoricals(self, df, exclude = None):
+        return self.types(df, ['category', object], exclude)
+    
+    def one_hot_encode(self, df, cols):
+        for i in cols:
+            dummies = pd.get_dummies(df[i], prefix=i, drop_first = True)
+            df = pd.concat([df, dummies], axis = 1)
+            df = df.drop(i, axis = 1)
+
+        return df
     
     def split_x_y(self, df):
         return df.loc[:, df.columns != self.TARGET], df.loc[:, self.TARGET]
@@ -292,6 +289,7 @@ class Helper:
             all_scores  = pd.DataFrame(columns = ['Model', 'Mean', 'CV Score', 'Time', 'Cumulative', 'Pipe', 'Steps', 'Note'])
 
         if len(scores[scores > 0]) == 0:
+            note = 'Warning: All scores negative'
             mean = 0
             std = 0
         else:
@@ -303,10 +301,15 @@ class Helper:
             cumulative += all_scores[all_scores['Model'] == model].tail(1)['Cumulative'].values[0]
             
         return all_scores.append({'Model': model, 'Mean': mean, 'CV Score': '{:.3f} +/- {:.3f}'.format(mean, std), 'Time': stop - start, 'Cumulative': cumulative, 'Pipe': pipe, 'Steps': ', '.join(self.pipe_steps(pipe)[:-1]), 'Note': note}, ignore_index=True)
-
-    def show_scores(self, all_scores):
+        
+    def show_scores(self, all_scores, top = False):
         pd.set_option('max_colwidth', -1)
-        display(all_scores.loc[:, ~all_scores.columns.isin(['Mean', 'Pipe', 'Cumulative'])])
+        
+        if top:
+            a_s = all_scores.sort_values(['Mean'], ascending = False).groupby('Model').first()
+            display(a_s.loc[:, ~a_s.columns.isin(['Mean', 'Pipe', 'Cumulative'])])
+        else:
+            display(all_scores.loc[:, ~all_scores.columns.isin(['Mean', 'Pipe', 'Cumulative'])])
         
     def plot_models(self, all_scores):
         sns.set_style("whitegrid")
@@ -348,6 +351,24 @@ class Helper:
             plt.ylabel(y_label)
             
     # Classification
+    
+    def under_represented(self, df, threshold = 0.99):
+        under_rep = []
+        for column in df:
+            counts = df[column].value_counts()
+            majority_freq = counts.iloc[0]
+            if (majority_freq / len(df)) > threshold:
+                under_rep.append(column)
+
+        if not under_rep:
+            print('No underrepresented features')
+        else:
+            if self.TARGET in under_rep:
+                print('The target variable is underrepresented, consider rebalancing')
+                under_represented.remove(self.TARGET)
+            print(str(under_rep) + ' underrepresented')
+
+        return under_rep
 
     def plot_roc(self, fpr, tpr, logit_roc_auc):
         plt.figure(figsize=(12, 6))
