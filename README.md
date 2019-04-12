@@ -85,7 +85,7 @@ Also, you can see the implementation in their corresponding Kaggle Kernels:
 
 * [Bike Sharing in Washington D.C.: Time Series Regression](https://www.kaggle.com/akoury/bike-sharing-in-washington-d-c-using-ml-helper)
 
-* [Employee Attrition: Classification](https://www.kaggle.com/akoury/employee-attrition-helpers-to-speed-up-ml-process)
+* [Employee Attrition: Classification](https://www.kaggle.com/akoury/employee-attrition-basis-to-create-ml-helper-lib)
 
 ### ML-Helper Coding Style
 

@@ -55,12 +55,21 @@ class Helper:
         num = (num - num.mean()) / num.std()
         ax = sns.boxplot(data=num, orient="h")
 
-    def coefficient_v(self, df, exclude=[]):
+    def coefficient_variation(self, df, threshold = 0.05, exclude=[]):
         plt.figure(figsize=(8, 6))
+        cols = self.numericals(df, exclude)
+        variance = variation(cols)
         ax = sns.barplot(
-            x=np.sort(variation(self.numericals(df, exclude)))[::-1],
-            y=self.numericals(df, exclude).columns,
+            x=np.sort(variance)[::-1],
+            y=cols.columns,
         )
+        
+        cols = [x for x in cols.columns[np.argwhere(variance < threshold)]]
+        if len(cols) > 0:
+            print(str(cols) + ' are invariant with a threshold of ' + str(threshold))
+        else:
+            print('No invariant columns')
+        return cols
 
     def correlated(self, df, threshold=0.9):
         categoric = self.categorical_correlated(df, threshold)
@@ -211,7 +220,7 @@ class Helper:
 
     # Modeling
 
-    def cv_evaluate(self, df, model, splits=None, pipe=None, grid=None):
+    def cross_val(self, df, model, splits=None, pipe=None, grid=None):
         if splits is None:
             splits = self.SPLITS
 
@@ -271,7 +280,7 @@ class Helper:
                 try:
                     start = timeit.default_timer()
 
-                    scores, cv_model = self.cv_evaluate(
+                    scores, cv_model = self.cross_val(
                         df.copy(), model, pipe=pipe, splits=splits
                     )
 
