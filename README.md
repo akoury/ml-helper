@@ -8,19 +8,19 @@ The library is available in [Pypi](https://pypi.org/project/ml-helper/)
 
 The easiest way to install ml-helper is through ```pip```
 
-```
+```python
 pip install ml-helper
 ```
 
 To use it in your project, you must first import the library
 
-```
+```python
 from ml_helper.helper import Helper
 ```
 
 And then create a Helper object with a dictionary of keys related to your project
 
-```
+```python
 KEYS = {
     'SEED': 1,
     'TARGET': 'y',
@@ -97,4 +97,4 @@ Ml-Helper complies to PEP8 and uses ```black``` for coding standards
 
 ### License
 
-This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details
+This project is licensed under the MIT License - see the [License](license.txt) file for details
