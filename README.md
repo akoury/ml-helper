@@ -1,10 +1,12 @@
 # ML Helper
-
+---
 Helpers to speed up and structure machine learning projects.
 
 The library is available in [Pypi](https://pypi.org/project/ml-helper/)
 
 ### Installing
+---
+
 
 The easiest way to install ml-helper is through ```pip```
 
@@ -48,6 +50,7 @@ ML-Helper requires:
 * Vecstack
 
 ### Functionality
+---
 
 The functionality is separated into 4 groups:
 * Data Exploration
@@ -79,6 +82,7 @@ The functionality is separated into 4 groups:
     * Plot models/pipelines
 
 ### Working Examples
+---
 If you wish to see the library in use, you may view the notebooks in the [examples](examples) section.
 
 Also, you can see the implementation in their corresponding Kaggle Kernels:
@@ -88,13 +92,13 @@ Also, you can see the implementation in their corresponding Kaggle Kernels:
 * [Employee Attrition: Classification](https://www.kaggle.com/akoury/employee-attrition-basis-to-create-ml-helper-lib)
 
 ### ML-Helper Coding Style
-
+---
 Ml-Helper complies to PEP8 and uses ```black``` for coding standards
 
 ### Versioning
-
+---
 [SemVer](http://semver.org/) is used for versioning. 
 
 ### License
-
+---
 This project is licensed under the MIT License - see the [License](license.txt) file for details
