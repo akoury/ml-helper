@@ -159,7 +159,7 @@ class Helper:
         else:
             if self.TARGET in under_rep:
                 print("The target variable is underrepresented, consider rebalancing")
-                under_represented.remove(self.TARGET)
+                under_rep.remove(self.TARGET)
             print(str(under_rep) + " underrepresented")
 
         return under_rep
