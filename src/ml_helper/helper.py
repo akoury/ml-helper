@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar  11 09:19:35 2019
-
-@author: akoury
-"""
-
 import timeit
 import numpy as np
 import pandas as pd
@@ -31,16 +23,28 @@ from sklearn.model_selection import (
 
 
 class Helper:
+    '''
+    Functions to speed up the machine learning process.
+
+    Args:
+        keys (dict): Dictionary used to set the multiple properties of the object.
+
+    Attributes:
+        KEYS (str): This is where we store all the keys.
+        SEED (int): The seed used for reproducibility.
+        TARGET (str): The name of the target variable.
+        METRIC (str): The metric used for modeling.
+        TIMESERIES (bool): Whether it is a time series or not
+        SPLITS (int): The number of splits to do in cross validation
+    '''
+    
     def __init__(self, keys):
-        self.keys = keys
+        self.KEYS = keys
         self.SEED = keys["SEED"]
         self.TARGET = keys["TARGET"]
         self.METRIC = keys["METRIC"]
         self.TIMESERIES = keys["TIMESERIES"]
         self.SPLITS = keys["SPLITS"]
-
-    def get_keys(self):
-        return self.keys
 
     # Data Exploration
 
@@ -55,20 +59,17 @@ class Helper:
         num = (num - num.mean()) / num.std()
         ax = sns.boxplot(data=num, orient="h")
 
-    def coefficient_variation(self, df, threshold = 0.05, exclude=[]):
+    def coefficient_variation(self, df, threshold=0.05, exclude=[]):
         plt.figure(figsize=(8, 6))
         cols = self.numericals(df, exclude)
         variance = variation(cols)
-        ax = sns.barplot(
-            x=np.sort(variance)[::-1],
-            y=cols.columns,
-        )
-        
+        ax = sns.barplot(x=np.sort(variance)[::-1], y=cols.columns)
+
         cols = [x for x in cols.columns[np.argwhere(variance < threshold)]]
         if len(cols) > 0:
-            print(str(cols) + ' are invariant with a threshold of ' + str(threshold))
+            print(str(cols) + " are invariant with a threshold of " + str(threshold))
         else:
-            print('No invariant columns')
+            print("No invariant columns")
         return cols
 
     def correlated(self, df, threshold=0.9):
@@ -380,7 +381,11 @@ class Helper:
         return df
 
     def split_x_y(self, df):
-        return df.loc[:, df.columns != self.TARGET], df.loc[:, self.TARGET]
+        X = df.loc[:, df.columns != self.TARGET]
+        if len(X.columns) == 1:
+            X = X.iloc[:,0]
+        y = df.loc[:, self.TARGET]
+        return X, y
 
     def flatten(self, pipe):
         flat = []
@@ -465,6 +470,7 @@ class Helper:
                     :, ~all_scores.columns.isin(["Mean", "Pipe", "Cumulative"])
                 ]
             )
+        pd.reset_option('max_colwidth', silent=True)
 
     def plot_models(self, all_scores):
         sns.set_style("whitegrid")
