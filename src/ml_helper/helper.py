@@ -262,7 +262,7 @@ class Helper:
         return scores, model
 
     def pipeline(
-        self, df, models, pipe, all_scores=pd.DataFrame(), splits=None, note=""
+        self, df, models, pipe, all_scores=pd.DataFrame(), splits=None, note="", quiet=False
     ):
         if splits is None:
             splits = self.SPLITS
@@ -306,8 +306,9 @@ class Helper:
                     str(model["name"])
                     + " already trained on those parameters, ignoring"
                 )
-
-        self.show_scores(all_scores)
+        
+        if not quiet:
+            self.show_scores(all_scores)
 
         return all_scores
 
